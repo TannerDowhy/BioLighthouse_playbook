@@ -1,0 +1,52 @@
+---
+# tasks file for ansible-role-globus
+
+- name: Get the Globus Personal Connect software
+  get_url:
+    url: https://downloads.globus.org/globus-connect-personal/linux/stable/globusconnectpersonal-latest.tgz
+    dest: "{{ software_path }}"
+
+- name: Unarchive the download
+  unarchive:
+    src: "{{ software_path }}/globusconnectpersonal-latest.tgz"
+    dest: "{{ software_path }}"
+    remote_src: true
+  notify:
+    - remove archived file
+
+- name: Create the endpoint
+  shell: "{{ ansible_env.PWD }}/.local/bin/globus endpoint create --personal {{ endpoint_name }}" #  | cut -f 10 -d ' '
+  register: setup_out
+
+- name: Remove newline chars
+  set_fact:
+    setup_id_tmp: "{{ setup_out.stdout | replace('\n', ' ') }}"
+
+- debug:
+    var: setup_id_tmp
+
+- name: Get the endpoint ID
+  set_fact:
+    endpoint_id: "{{ setup_id_tmp.split(' ')[10] }}"
+
+- debug:
+    var: endpoint_id
+
+- name: Get the setup ID
+  set_fact:
+    setup_id: "{{ setup_id_tmp.split(' ')[15] }}"
+
+- debug:
+    var: setup_id
+
+- name: Setup the endpoint
+  shell: "./globusconnectpersonal -setup {{ setup_id }}"
+  args:
+    chdir: "{{ software_path }}/globusconnectpersonal-{{ globusconnect_version}}"
+
+- name: Start the endpoint
+  shell: "{{ ansible_env.PWD }}/software/globusconnectpersonal-2.3.6/globusconnectpersonal -start &"
+  register: outout
+
+- debug:
+    var: outout
